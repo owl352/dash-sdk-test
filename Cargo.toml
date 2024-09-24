@@ -1,0 +1,12 @@
+[package]
+name = "dashsdk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+
+dash-sdk = { path="../platform/packages/rs-sdk" }
+async-std = "1.13.0"
+tokio = "1.40.0"
+clap = { version = "4.5.18", features = ["derive"] }
+http = "0.2.12"
