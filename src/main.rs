@@ -7,7 +7,7 @@ use drive::dpp::platform_value::string_encoding::Encoding::Base58;
 
 #[tokio::main]
 async fn main() {
-    let DATA_CONTRACT_ID_BYTES: [u8; 32] = Identifier::from_string("2twstHkD3uYEogneYppHDCfnnfKxDk6YeJrKt3qNwtcW", Base58)
+    let data_contract_identifier: [u8; 32] = Identifier::from_string("2twstHkD3uYEogneYppHDCfnnfKxDk6YeJrKt3qNwtcW", Base58)
         .expect("Could not parse data contract identifier")
         .into();
 
@@ -42,7 +42,7 @@ async fn main() {
 
     sdk.set_context_provider(context_provider);
 
-    let id = Identifier::from_bytes(&DATA_CONTRACT_ID_BYTES).expect("parse data contract id");
+    let id = Identifier::from_bytes(&data_contract_identifier).expect("parse data contract id");
 
     let contract: Option<DataContract> =
         DataContract::fetch(&sdk, id).await.expect("fetch identity");
@@ -51,7 +51,7 @@ async fn main() {
         None => {
             println!("No contract found")
         }
-        Some(contract) => {
+        Some(_) => {
             println!("Contract is there")
         }
     }
