@@ -5,8 +5,7 @@ edition = "2021"
 
 [dependencies]
 
-dash-sdk = { path="../platform/packages/rs-sdk" }
-async-std = "1.13.0"
-tokio = "1.40.0"
-clap = { version = "4.5.18", features = ["derive"] }
+dash-sdk = { path = "../../WebstormProjects/platform/packages/rs-sdk" }
+drive = { path = "../../WebstormProjects/platform/packages/rs-drive" }
 http = "0.2.12"
+tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }
