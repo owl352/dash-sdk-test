@@ -5,7 +5,11 @@ edition = "2021"
 
 [dependencies]
 
+dpp = { path = "../../WebstormProjects/platform/packages/rs-dpp" , features = ["state-transition-signing"]}
 dash-sdk = { path = "../../WebstormProjects/platform/packages/rs-sdk" }
 drive = { path = "../../WebstormProjects/platform/packages/rs-drive" }
 http = "0.2.12"
 tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }
+anyhow = "1.0.89"
+getrandom = "0.2.15"
+simple-signer = { path = "../../WebstormProjects/platform/packages/simple-signer" }
