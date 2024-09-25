@@ -21,6 +21,9 @@ use simple_signer::signer::SimpleSigner;
 use dpp::dashcore::secp256k1::rand::rngs::StdRng;
 use dpp::dashcore::secp256k1::rand::{Rng, SeedableRng};
 
+use dotenv::dotenv;
+use std::env;
+
 pub struct MyDefaultEntropyGenerator;
 
 impl EntropyGenerator for MyDefaultEntropyGenerator {
@@ -34,6 +37,8 @@ impl EntropyGenerator for MyDefaultEntropyGenerator {
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+
     let data_contract_identifier: [u8; 32] = Identifier::from_string("2twstHkD3uYEogneYppHDCfnnfKxDk6YeJrKt3qNwtcW", Base58)
         .expect("Could not parse data contract identifier")
         .into();
@@ -208,11 +213,11 @@ async fn main() {
 
     let document_type_name = "Claim";
 
-    let server_address: String = String::from("127.0.0.1");
-    let core_port: u16 = 19998;
-    let platform_port: u16 = 1443;
-    let core_user: String = String::from("dashmate");
-    let core_password: String = String::from("rTvfm81kiOxO");
+    let server_address = env::var("SERVER_ADDRESS").expect("SERVER_ADDRESS not set");
+    let core_port: u16 = env::var("CORE_PORT").expect("CORE_PORT not set").parse().unwrap();
+    let platform_port: u16 = env::var("PLATFORM_PORT").expect("PLATFORM_PORT not set").parse().unwrap();
+    let core_user = env::var("CORE_USER").expect("CORE_USER not set");
+    let core_password = env::var("CORE_PASSWORD").expect("CORE_PASSWORD not set");
 
     let context_provider = GrpcContextProvider::new(
         None,
