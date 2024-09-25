@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
@@ -17,7 +17,7 @@ use dash_sdk::sdk::AddressList;
 use dpp::dashcore::{Network, PrivateKey};
 use dpp::data_contract::document_type::accessors::DocumentTypeV0Getters;
 use dpp::document::{DocumentV0, INITIAL_REVISION};
-use dpp::identity::{KeyID, KeyType, Purpose, SecurityLevel};
+use dpp::identity::{IdentityPublicKey, IdentityV0, KeyID, KeyType, Purpose, SecurityLevel};
 use dpp::identity::hash::IdentityPublicKeyHashMethodsV0;
 use dpp::identity::identity_public_key::accessors::v0::IdentityPublicKeyGettersV0;
 use drive::dpp::platform_value::string_encoding::Encoding::Base58;
@@ -29,6 +29,8 @@ use simple_signer::signer::SimpleSigner;
 use dpp::{
     dashcore::{self, key::Secp256k1},
 };
+use dpp::identity::accessors::IdentitySettersV0;
+use dpp::identity::identity_public_key::v0::IdentityPublicKeyV0;
 
 pub struct MyDefaultEntropyGenerator;
 
@@ -49,16 +51,16 @@ async fn main() {
     let document_identifier: [u8; 32] = Identifier::from_string("48dV7PmazUqPZjC7qZNpL2a9PiU9KzAHPsdkBUxrm7Yz", Base58)
         .expect("Could not parse data contract identifier")
         .into();
-    let identity_identifier: [u8; 32] = Identifier::from_string("B7kcE1juMBWEWkuYRJhVdAE2e6RaevrGxRsa1DrLCpQH", Base58)
+    let identity_identifier: [u8; 32] = Identifier::from_string("9Upw4Yd8FmL6XvjTpAHguqWg227KkfRbmbhnfZFV7UuB", Base58)
         .expect("Could not parse identity identifier")
         .into();
 
 
-    let private_key = PrivateKey::from_wif("cTotPERUnsKgJgbddCKh1EqrBM2Esamu3V11rmn4jHSwhRtSb8y5")
+    let private_key = PrivateKey::from_wif("cQ9xWG9f2gQjJ2uxqKDFFy7crSpziY4oADnPQfvGyQq3coKSo9XV")
         .expect("Could not parse pk");
 
-    let public_key = private_key.public_key(&Secp256k1::new());
-    let pubkey_hash = public_key.pubkey_hash();
+    let pubKey = private_key.public_key(&Secp256k1::new());
+    let pubkey_hash = pubKey.pubkey_hash();
     let address = pubkey_hash.to_hex();
 
 
@@ -315,25 +317,15 @@ async fn main() {
         .expect("failed to create new document type");
 
 
-    let identity_public_key = identity.get_first_public_key_matching(
-        Purpose::AUTHENTICATION,
-        HashSet::from([SecurityLevel::HIGH]),
-        HashSet::from([KeyType::ECDSA_SECP256K1, KeyType::BLS12_381]),
-    )
+    let identity_public_key = identity.get_public_key_by_id(1)
         .expect("Could not match identity public key");
 
 
     let mut signer = SimpleSigner::default();
 
-    let private_key_bytes = [];
-
-    for (key_id, public_key) in identity.public_keys() {
-        let identity_key_tuple = (identity_id, *key_id);
-
-        signer
-            .private_keys
-            .insert(public_key.clone(), private_key_bytes.clone());
-    }
+    signer.add_key(identity_public_key.clone(), private_key.to_bytes().clone());
+        // .private_keys
+        // .insert(identity_public_key.clone(), private_key.to_bytes());
 
     let data_contract_arc = Arc::new(contract.clone());
 
