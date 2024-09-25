@@ -1,10 +1,12 @@
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context;
 use dash_sdk::{mock::provider::GrpcContextProvider, SdkBuilder};
+use dash_sdk::dapi_client::mock::Key;
 use dash_sdk::dpp::data_contract::document_type::DocumentType;
 use dash_sdk::dpp::identity::accessors::IdentityGettersV0;
 use dash_sdk::dpp::platform_value::platform_value;
@@ -12,14 +14,21 @@ use dash_sdk::dpp::util::entropy_generator::EntropyGenerator;
 use dash_sdk::platform::{DataContract, Document, DocumentQuery, Fetch, Identifier, Identity};
 use dash_sdk::platform::transition::put_document::PutDocument;
 use dash_sdk::sdk::AddressList;
+use dpp::dashcore::{Network, PrivateKey};
 use dpp::data_contract::document_type::accessors::DocumentTypeV0Getters;
 use dpp::document::{DocumentV0, INITIAL_REVISION};
-use dpp::identity::{KeyType, Purpose};
+use dpp::identity::{KeyID, KeyType, Purpose, SecurityLevel};
+use dpp::identity::hash::IdentityPublicKeyHashMethodsV0;
+use dpp::identity::identity_public_key::accessors::v0::IdentityPublicKeyGettersV0;
 use drive::dpp::platform_value::string_encoding::Encoding::Base58;
 use drive::dpp::util::entropy_generator::DefaultEntropyGenerator;
 use drive::dpp::version::PlatformVersion;
 use getrandom::getrandom;
 use simple_signer::signer::SimpleSigner;
+
+use dpp::{
+    dashcore::{self, key::Secp256k1},
+};
 
 pub struct MyDefaultEntropyGenerator;
 
@@ -40,9 +49,18 @@ async fn main() {
     let document_identifier: [u8; 32] = Identifier::from_string("48dV7PmazUqPZjC7qZNpL2a9PiU9KzAHPsdkBUxrm7Yz", Base58)
         .expect("Could not parse data contract identifier")
         .into();
-    let identity_identifier: [u8; 32] = Identifier::from_string("9Upw4Yd8FmL6XvjTpAHguqWg227KkfRbmbhnfZFV7UuB", Base58)
+    let identity_identifier: [u8; 32] = Identifier::from_string("B7kcE1juMBWEWkuYRJhVdAE2e6RaevrGxRsa1DrLCpQH", Base58)
         .expect("Could not parse identity identifier")
         .into();
+
+
+    let private_key = PrivateKey::from_wif("cTotPERUnsKgJgbddCKh1EqrBM2Esamu3V11rmn4jHSwhRtSb8y5")
+        .expect("Could not parse pk");
+
+    let public_key = private_key.public_key(&Secp256k1::new());
+    let pubkey_hash = public_key.pubkey_hash();
+    let address = pubkey_hash.to_hex();
+
 
     let data_contract_schema = platform_value!({
       "Project": {
@@ -209,7 +227,7 @@ async fn main() {
     let core_port: u16 = 19998;
     let platform_port: u16 = 1443;
     let core_user: String = String::from("dashmate");
-    let core_password: String = String::from("zFLWx0FRN1WU");
+    let core_password: String = String::from("rTvfm81kiOxO");
 
     let context_provider = GrpcContextProvider::new(
         None,
@@ -269,7 +287,7 @@ async fn main() {
     let document: Document = Document::V0(DocumentV0 {
         id: document_id,
         properties: document_properties.into_btree_string_map().unwrap(),
-        owner_id: identity_id,
+        owner_id: identity_id, //
         revision: Some(INITIAL_REVISION),
         created_at: Some(now_seconds),
         updated_at: Some(now_seconds),
@@ -296,12 +314,14 @@ async fn main() {
     )
         .expect("failed to create new document type");
 
+
     let identity_public_key = identity.get_first_public_key_matching(
         Purpose::AUTHENTICATION,
-        HashSet::from([new_document_type.security_level_requirement()]),
+        HashSet::from([SecurityLevel::HIGH]),
         HashSet::from([KeyType::ECDSA_SECP256K1, KeyType::BLS12_381]),
-        false,
-    ).expect("Could not match identity public key");
+    )
+        .expect("Could not match identity public key");
+
 
     let mut signer = SimpleSigner::default();
 
@@ -316,6 +336,7 @@ async fn main() {
     }
 
     let data_contract_arc = Arc::new(contract.clone());
+
 
     let new_document = document.put_to_platform_and_wait_for_response(
         &sdk,
