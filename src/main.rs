@@ -29,8 +29,12 @@ use simple_signer::signer::SimpleSigner;
 use dpp::{
     dashcore::{self, key::Secp256k1},
 };
+use dpp::dashcore::secp256k1::rand::rngs::StdRng;
+use dpp::dashcore::secp256k1::rand::{Rng, SeedableRng};
 use dpp::identity::accessors::IdentitySettersV0;
 use dpp::identity::identity_public_key::v0::IdentityPublicKeyV0;
+
+use bytes::Bytes;
 
 pub struct MyDefaultEntropyGenerator;
 
@@ -183,42 +187,46 @@ async fn main() {
       }
     });
 
+    let arr = [
+        81,
+        4,
+        39,
+        130,
+        0,
+        31,
+        33,
+        150,
+        119,
+        144,
+        62,
+        21,
+        9,
+        138,
+        172,
+        48,
+        113,
+        169,
+        210,
+        246,
+        113,
+        194,
+        162,
+        177,
+        44,
+        78,
+        160,
+        140,
+        180,
+        214,
+        61,
+        237
+    ];
+
+    let byte_array: &[u8] = &arr;
+
     let document_properties = platform_value!(
      {
-      "taskId": [
-          81,
-          4,
-          39,
-          130,
-          0,
-          31,
-          33,
-          150,
-          119,
-          144,
-          62,
-          21,
-          9,
-          138,
-          172,
-          48,
-          113,
-          169,
-          210,
-          246,
-          113,
-          194,
-          162,
-          177,
-          44,
-          78,
-          160,
-          140,
-          180,
-          214,
-          61,
-          237
-        ],
+      "taskId": bytes::Bytes::copy_from_slice(&arr),
       "amountCredits": 20,
       "amountUSD": 500
     });
@@ -266,9 +274,9 @@ async fn main() {
         DataContract::fetch(&sdk, data_contract_identifier).await.expect("fetch identity").expect("Data contract not found");
 
     // Now query for individual document
-    let query = DocumentQuery::new(contract.clone(), &document_type_name)
-        .expect("create SdkDocumentQuery")
-        .with_document_id(&document_contract_identifier);
+    // let query = DocumentQuery::new(contract.clone(), &document_type_name)
+    //     .expect("create SdkDocumentQuery")
+    //     .with_document_id(&document_contract_identifier);
 
     let now = SystemTime::now();
     let now_seconds = now
@@ -276,14 +284,17 @@ async fn main() {
         .expect("Time went backwards")
         .as_secs();
 
-    let entropy_generator = DefaultEntropyGenerator {};
-    let entropy_buffer = entropy_generator.generate().unwrap();
+    // let entropy_generator = DefaultEntropyGenerator {};
+    // let entropy_buffer = entropy_generator.generate().unwrap();
+
+    let mut std_rng = StdRng::from_entropy();
+    let document_state_transition_entropy: [u8; 32] = std_rng.gen();
 
     let document_id = Document::generate_document_id_v0(
         &data_contract_identifier,
         &identity_id,
         &document_type_name,
-        entropy_buffer.as_slice(),
+        &document_state_transition_entropy,
     );
 
     let document: Document = Document::V0(DocumentV0 {
@@ -316,7 +327,6 @@ async fn main() {
     )
         .expect("failed to create new document type");
 
-
     let identity_public_key = identity.get_public_key_by_id(1)
         .expect("Could not match identity public key");
 
@@ -329,11 +339,10 @@ async fn main() {
 
     let data_contract_arc = Arc::new(contract.clone());
 
-
     let new_document = document.put_to_platform_and_wait_for_response(
         &sdk,
         new_document_type,
-        entropy_generator.generate().unwrap(),
+        document_state_transition_entropy,
         identity_public_key.clone(),
         data_contract_arc,
         &signer,

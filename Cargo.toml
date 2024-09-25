@@ -14,3 +14,4 @@ anyhow = "1.0.89"
 getrandom = "0.2.15"
 simple-signer = { path = "../platform/packages/simple-signer" }
 hex = "0.4.3"
+bytes = "1.7.2"
