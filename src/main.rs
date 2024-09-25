@@ -1,40 +1,25 @@
-use std::collections::{BTreeMap, HashSet};
-use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context;
 use dash_sdk::{mock::provider::GrpcContextProvider, SdkBuilder};
-use dash_sdk::dapi_client::mock::Key;
 use dash_sdk::dpp::data_contract::document_type::DocumentType;
 use dash_sdk::dpp::identity::accessors::IdentityGettersV0;
 use dash_sdk::dpp::platform_value::platform_value;
 use dash_sdk::dpp::util::entropy_generator::EntropyGenerator;
-use dash_sdk::platform::{DataContract, Document, DocumentQuery, Fetch, Identifier, Identity};
+use dash_sdk::platform::{DataContract, Document, Fetch, Identifier, Identity};
 use dash_sdk::platform::transition::put_document::PutDocument;
 use dash_sdk::sdk::AddressList;
-use dpp::dashcore::{Network, PrivateKey};
-use dpp::data_contract::document_type::accessors::DocumentTypeV0Getters;
+use dpp::dashcore::{PrivateKey};
 use dpp::document::{DocumentV0, INITIAL_REVISION};
-use dpp::identity::{IdentityPublicKey, IdentityV0, KeyID, KeyType, Purpose, SecurityLevel};
-use dpp::identity::hash::IdentityPublicKeyHashMethodsV0;
-use dpp::identity::identity_public_key::accessors::v0::IdentityPublicKeyGettersV0;
 use drive::dpp::platform_value::string_encoding::Encoding::Base58;
-use drive::dpp::util::entropy_generator::DefaultEntropyGenerator;
 use drive::dpp::version::PlatformVersion;
 use getrandom::getrandom;
 use simple_signer::signer::SimpleSigner;
 
-use dpp::{
-    dashcore::{self, key::Secp256k1},
-};
 use dpp::dashcore::secp256k1::rand::rngs::StdRng;
 use dpp::dashcore::secp256k1::rand::{Rng, SeedableRng};
-use dpp::identity::accessors::IdentitySettersV0;
-use dpp::identity::identity_public_key::v0::IdentityPublicKeyV0;
-
-use bytes::Bytes;
 
 pub struct MyDefaultEntropyGenerator;
 
@@ -52,9 +37,6 @@ async fn main() {
     let data_contract_identifier: [u8; 32] = Identifier::from_string("2twstHkD3uYEogneYppHDCfnnfKxDk6YeJrKt3qNwtcW", Base58)
         .expect("Could not parse data contract identifier")
         .into();
-    let document_identifier: [u8; 32] = Identifier::from_string("48dV7PmazUqPZjC7qZNpL2a9PiU9KzAHPsdkBUxrm7Yz", Base58)
-        .expect("Could not parse data contract identifier")
-        .into();
     let identity_identifier: [u8; 32] = Identifier::from_string("9Upw4Yd8FmL6XvjTpAHguqWg227KkfRbmbhnfZFV7UuB", Base58)
         .expect("Could not parse identity identifier")
         .into();
@@ -62,11 +44,6 @@ async fn main() {
 
     let private_key = PrivateKey::from_wif("cQ9xWG9f2gQjJ2uxqKDFFy7crSpziY4oADnPQfvGyQq3coKSo9XV")
         .expect("Could not parse pk");
-
-    let pubKey = private_key.public_key(&Secp256k1::new());
-    let pubkey_hash = pubKey.pubkey_hash();
-    let address = pubkey_hash.to_hex();
-
 
     let data_contract_schema = platform_value!({
       "Project": {
@@ -222,8 +199,6 @@ async fn main() {
         237
     ];
 
-    let byte_array: &[u8] = &arr;
-
     let document_properties = platform_value!(
      {
       "taskId": bytes::Bytes::copy_from_slice(&arr),
@@ -268,24 +243,15 @@ async fn main() {
     let identity = Identity::fetch_by_identifier(&sdk, identity_id).await.unwrap().expect("Identity not found");
 
     let data_contract_identifier = Identifier::from_bytes(&data_contract_identifier).expect("parse data contract id");
-    let document_contract_identifier = Identifier::from_bytes(&document_identifier).expect("parse data contract id");
 
     let contract: DataContract =
         DataContract::fetch(&sdk, data_contract_identifier).await.expect("fetch identity").expect("Data contract not found");
-
-    // Now query for individual document
-    // let query = DocumentQuery::new(contract.clone(), &document_type_name)
-    //     .expect("create SdkDocumentQuery")
-    //     .with_document_id(&document_contract_identifier);
 
     let now = SystemTime::now();
     let now_seconds = now
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards")
         .as_secs();
-
-    // let entropy_generator = DefaultEntropyGenerator {};
-    // let entropy_buffer = entropy_generator.generate().unwrap();
 
     let mut std_rng = StdRng::from_entropy();
     let document_state_transition_entropy: [u8; 32] = std_rng.gen();
