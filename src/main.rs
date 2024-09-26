@@ -12,7 +12,7 @@ use dash_sdk::platform::{DataContract, Document, DocumentQuery, Fetch, Identifie
 use dash_sdk::platform::transition::put_document::PutDocument;
 use dash_sdk::sdk::AddressList;
 use dpp::dashcore::{PrivateKey};
-use dpp::document::{DocumentV0, INITIAL_REVISION};
+use dpp::document::{DocumentV0, DocumentV0Getters, DocumentV0Setters, INITIAL_REVISION};
 use drive::dpp::platform_value::string_encoding::Encoding::Base58;
 use drive::dpp::version::PlatformVersion;
 use getrandom::getrandom;
@@ -26,7 +26,9 @@ use std::env;
 use dash_sdk::platform::proto::get_documents_request::GetDocumentsRequestV0;
 use dash_sdk::platform::proto::GetDocumentsRequest;
 use dash_sdk::platform::transition::update_price_of_document::UpdatePriceOfDocument;
+use dpp::document::document_methods::DocumentMethodsV0;
 use dpp::fee::Credits;
+
 
 pub struct MyDefaultEntropyGenerator;
 
@@ -42,14 +44,14 @@ impl EntropyGenerator for MyDefaultEntropyGenerator {
 async fn main() {
   dotenv().ok();
 
-  let data_contract_identifier: [u8; 32] = Identifier::from_string("2twstHkD3uYEogneYppHDCfnnfKxDk6YeJrKt3qNwtcW", Base58)
+  let data_contract_identifier: [u8; 32] = Identifier::from_string("CW12dnaPL3Mrb5MiJL4SgBhgimc4BBSagjL1dGtURcJp", Base58)
     .expect("Could not parse data contract identifier")
     .into();
   let identity_identifier: [u8; 32] = Identifier::from_string("9Upw4Yd8FmL6XvjTpAHguqWg227KkfRbmbhnfZFV7UuB", Base58)
     .expect("Could not parse identity identifier")
     .into();
 
-  let document_identifier = Identifier::from_string("Bk26VPXUUzacSj6xu8QEdVYdN76RPYjM8isBhS3PLW3o", Base58)
+  let document_identifier = Identifier::from_string("5iCdbVb5Tn3GLzqCzsX7SVXaZgFeNQ1NDmVZ51Rap1Tx", Base58)
     .expect("Could not parse identity identifier");
 
 
@@ -57,123 +59,127 @@ async fn main() {
     .expect("Could not parse pk");
 
   let data_contract_schema = platform_value!({
-      "Project": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "position": 0,
-            "type": "string",
-            "description": "Project name",
-            "maxLength": 63
-          },
-          "description": {
-            "position": 1,
-            "type": "string",
-            "description": "Project description",
-            "maxLength": 1000
-          },
-          "url": {
-            "position": 2,
-            "type": "string",
-            "description": "Project URL",
-            "maxLength": 255
-          }
-        },
-        "required": [
-          "name",
-          "description",
-          "url",
-          "$createdAt",
-          "$updatedAt"
-        ],
-        "additionalProperties": false
+  "Project": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "position": 0,
+        "type": "string",
+        "description": "Project name",
+        "maxLength": 63
       },
-      "Tasks": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "position": 0,
-            "type": "string",
-            "description": "Task title",
-            "maxLength": 63
-          },
-          "description": {
-            "position": 1,
-            "type": "string",
-            "description": "Task description",
-            "maxLength": 1000
-          },
-          "url": {
-            "position": 2,
-            "type": "string",
-            "description": "Task URL",
-            "maxLength": 255
-          },
-          "assignee": {
-            "position": 3,
-            "type": "array",
-            "description": "Task assignee executor",
-            "byteArray": true,
-            "minItems": 32,
-            "maxItems": 32
-          },
-          "projectId": {
-            "position": 4,
-            "type": "array",
-            "byteArray": true,
-            "minItems": 32,
-            "maxItems": 32
-          },
-          "status": {
-            "position": 5,
-            "type": "string",
-            "description": "Task status",
-            "enum": [
-              "pending",
-              "in_progress",
-              "completed",
-              "cancelled",
-              "paid"
-            ]
-          }
-        },
-        "required": [
-          "title",
-          "projectId",
-          "$createdAt",
-          "$updatedAt"
-        ],
-        "additionalProperties": false
+      "description": {
+        "position": 1,
+        "type": "string",
+        "description": "Project description",
+        "maxLength": 1000
       },
-      "Claim": {
-        "type": "object",
-        "properties": {
-          "taskId": {
-            "position": 0,
-            "type": "array",
-            "byteArray": true,
-            "minItems": 32,
-            "maxItems": 32
-          },
-          "amountCredits": {
-            "position": 1,
-            "type": "number"
-          },
-          "amountUSD": {
-            "position": 2,
-            "type": "number"
-          }
-        },
-        "required": [
-          "$createdAt",
-          "$updatedAt",
-          "taskId",
-          "amountCredits",
-          "amountUSD"
-        ],
-        "additionalProperties": false
+      "url": {
+        "position": 2,
+        "type": "string",
+        "description": "Project URL",
+        "maxLength": 255
       }
-    });
+    },
+    "required": ["name", "description", "url", "$createdAt", "$updatedAt"],
+    "additionalProperties": false
+  },
+  "Tasks": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "position": 0,
+        "type": "string",
+        "description": "Task title",
+        "maxLength": 63
+      },
+      "description": {
+        "position": 1,
+        "type": "string",
+        "description": "Task description",
+        "maxLength": 1000
+      },
+      "url": {
+        "position": 2,
+        "type": "string",
+        "description": "Task URL",
+        "maxLength": 255
+      },
+      "assignee": {
+        "position": 3,
+        "type": "array",
+        "description": "Task assignee executor",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "projectId": {
+        "position": 4,
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "status": {
+        "position": 5,
+        "type": "string",
+        "description": "Task status",
+        "enum": [
+          "pending",
+          "in_progress",
+          "completed",
+          "will_not_implement",
+          "paid"
+        ]
+      }
+    },
+    "comment": {
+      "position": 6,
+      "type": "string",
+      "description": "Change status comment",
+      "maxLength": 1000
+    },
+    "required": ["title", "projectId", "$createdAt", "$updatedAt"],
+    "additionalProperties": false
+  },
+  "Claim": {
+    "type": "object",
+    "transferable": 1,
+    "tradeMode": 1,
+    "properties": {
+      "taskId": {
+        "position": 0,
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 32
+      },
+      "amountCredits": {
+        "position": 1,
+        "type": "number"
+      },
+      "amountUSD": {
+        "position": 2,
+        "type": "number"
+      },
+      "deliverable": {
+        "position": 3,
+        "type": "string",
+        "description": "Claim deliverable",
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "taskId",
+      "amountCredits",
+      "amountUSD",
+      "deliverable"
+    ],
+    "additionalProperties": false
+  }
+});
 
   let arr = [
     81,
@@ -214,7 +220,8 @@ async fn main() {
      {
       "taskId": bytes::Bytes::copy_from_slice(&arr),
       "amountCredits": 20,
-      "amountUSD": 500
+      "amountUSD": 500,
+       "deliverable": "https://github.com/LexxXell"
     });
 
   let document_type_name = "Claim";
@@ -278,7 +285,7 @@ async fn main() {
     id: document_id,
     properties: document_properties.into_btree_string_map().unwrap(),
     owner_id: identity_id, //
-    revision: Some(INITIAL_REVISION),
+    revision: Option::from(INITIAL_REVISION as dpp::prelude::Revision),
     created_at: Some(now_seconds),
     updated_at: Some(now_seconds),
     transferred_at: None,
@@ -323,7 +330,11 @@ async fn main() {
   //     identity_public_key.clone(),
   //     data_contract_arc,
   //     &signer,
-  // ).await; //.expect("There was a error pushing the document");
+  // ).await.expect("There was a error pushing the document");
+
+
+  // print!("{:?}", new_document.to_string());
+
 
   let price: Credits = 20;
 
@@ -332,10 +343,12 @@ async fn main() {
 
   let test = query.with_document_id(&document_identifier);
 
-  let document = Document::fetch(
+  let mut document = Document::fetch(
     &sdk,
     test,
   ).await.expect("Cannot find document/data contract").unwrap();
+
+  document.set_revision(Option::from(document.revision().unwrap()+1 as dpp::prelude::Revision));
 
   let out = document.update_price_of_document_and_wait_for_response(
     price,
@@ -345,18 +358,9 @@ async fn main() {
     data_contract_arc,
     &signer,
   ).await.expect("Cannot set price");
-
+  //
   println!("{:?}", out);
-  println!("{:?}", out);
-
-  // let updated_document = new_document.unwrap().update_price_of_document_and_wait_for_response(
-  //     price,
-  //     &sdk,
-  //     new_document_type,
-  //     identity_public_key.clone(),
-  //     data_contract_arc.clone(),
-  //     &signer,
-  // ).await.expect("Error updating the price of the document");
+  // println!("{:?}", out);
 
   println!("OK")
 }
