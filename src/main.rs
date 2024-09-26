@@ -23,6 +23,8 @@ use dpp::dashcore::secp256k1::rand::{Rng, SeedableRng};
 
 use dotenv::dotenv;
 use std::env;
+use dash_sdk::platform::transition::update_price_of_document::UpdatePriceOfDocument;
+use dpp::fee::Credits;
 
 pub struct MyDefaultEntropyGenerator;
 
@@ -317,7 +319,18 @@ async fn main() {
         identity_public_key.clone(),
         data_contract_arc,
         &signer,
-    ).await.expect("There was a error pushing the document");
+    ).await; //.expect("There was a error pushing the document");
+
+    let price: Credits = 20;
+
+    let updated_document = new_document.unwrap().update_price_of_document_and_wait_for_response(
+        price,
+        &sdk,
+        new_document_type,
+        identity_public_key.clone(),
+        data_contract_arc.clone(),
+        &signer,
+    ).await.expect("Error updating the price of the document");
 
     println!("OK")
 }
