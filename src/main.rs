@@ -25,6 +25,7 @@ use dotenv::dotenv;
 use std::env;
 use dash_sdk::platform::proto::get_documents_request::GetDocumentsRequestV0;
 use dash_sdk::platform::proto::GetDocumentsRequest;
+use dash_sdk::platform::transition::purchase_document::PurchaseDocument;
 use dash_sdk::platform::transition::update_price_of_document::UpdatePriceOfDocument;
 use dpp::document::document_methods::DocumentMethodsV0;
 use dpp::fee::Credits;
@@ -44,6 +45,8 @@ impl EntropyGenerator for MyDefaultEntropyGenerator {
 async fn main() {
   dotenv().ok();
 
+
+  // ! IDENTIFIERS
   let data_contract_identifier: [u8; 32] = Identifier::from_string("CW12dnaPL3Mrb5MiJL4SgBhgimc4BBSagjL1dGtURcJp", Base58)
     .expect("Could not parse data contract identifier")
     .into();
@@ -51,13 +54,23 @@ async fn main() {
     .expect("Could not parse identity identifier")
     .into();
 
-  let document_identifier = Identifier::from_string("5iCdbVb5Tn3GLzqCzsX7SVXaZgFeNQ1NDmVZ51Rap1Tx", Base58)
-    .expect("Could not parse identity identifier");
+  let document_identifier = Identifier::from_string("9NG46niBj1SQA6KD1M9CtZH6s2DGWmsfUdic4R9jySvR", Base58)
+    .expect("Could not parse document identifier");
 
 
+  let customer_identifier = Identifier::from_string("8eTDkBhpQjHeqgbVeriwLeZr1tCa6yBGw76SckvD1cwc", Base58)
+    .expect("Could not parse customer identifier");
+
+
+  // ! PRIVATE KEYS
   let private_key = PrivateKey::from_wif("cQ9xWG9f2gQjJ2uxqKDFFy7crSpziY4oADnPQfvGyQq3coKSo9XV")
     .expect("Could not parse pk");
 
+  let customer_private_key = PrivateKey::from_wif("cV8gdL3T1syAMbg71EY7LuJAvdyVajE2XAzkdzHTw5AHmADt1pr6")
+    .expect("Could not parse pk");
+
+
+  // ! DATA CONTRACT DATA
   let data_contract_schema = platform_value!({
   "Project": {
     "type": "object",
@@ -257,6 +270,7 @@ async fn main() {
 
   sdk.set_context_provider(context_provider);
 
+  // ! Create identity for seller
   let identity_id = Identifier::from(identity_identifier);
   let identity = Identity::fetch_by_identifier(&sdk, identity_id).await.unwrap().expect("Identity not found");
 
@@ -318,11 +332,13 @@ async fn main() {
   let mut signer = SimpleSigner::default();
 
   signer.add_key(identity_public_key.clone(), private_key.to_bytes().clone());
-  // .private_keys
-  // .insert(identity_public_key.clone(), private_key.to_bytes());
 
   let data_contract_arc = Arc::new(contract.clone());
-  //
+
+  // ! ==================
+  // !    PUT DOCUMENT
+  // ! ==================
+
   // let new_document = document.put_to_platform_and_wait_for_response(
   //     &sdk,
   //     new_document_type,
@@ -336,7 +352,11 @@ async fn main() {
   // print!("{:?}", new_document.to_string());
 
 
-  let price: Credits = 20;
+  // ! ==================
+  // !    UPDATE PRICE
+  // ! ==================
+
+  let price: Credits = 200;
 
 
   let query = DocumentQuery::new_with_data_contract_id(&sdk, data_contract_identifier, document_type_name).await.expect("dq error");
@@ -348,18 +368,48 @@ async fn main() {
     test,
   ).await.expect("Cannot find document/data contract").unwrap();
 
-  document.set_revision(Option::from(document.revision().unwrap()+1 as dpp::prelude::Revision));
+  // document.set_revision(Option::from(document.revision().unwrap() + 1 as dpp::prelude::Revision));
 
-  let out = document.update_price_of_document_and_wait_for_response(
+  // let out = document.update_price_of_document_and_wait_for_response(
+  //   price,
+  //   &sdk,
+  //   new_document_type,
+  //   identity_public_key.clone(),
+  //   data_contract_arc,
+  //   &signer,
+  // ).await.expect("Cannot set price");
+  //
+  // println!("{:?}", out);
+
+
+  // ! ==================
+  // !      PURCHASE
+  // ! ==================
+
+  // ! Create identity for customer
+  let customer_identity_id = Identifier::from(customer_identifier);
+  let customer_identity = Identity::fetch_by_identifier(&sdk, customer_identity_id).await.unwrap().expect("Identity not found");
+
+  let customer_identity_public_key = customer_identity.get_public_key_by_id(1)
+    .expect("Could not match identity public key");
+
+  // ! SIGNER
+  let mut customer_signer = SimpleSigner::default();
+
+  customer_signer.add_key(customer_identity_public_key.clone(), customer_private_key.to_bytes().clone());
+
+  let out = document.purchase_document_and_wait_for_response(
     price,
     &sdk,
     new_document_type,
-    identity_public_key.clone(),
+    customer_identifier,
+    customer_identity_public_key.clone(),
     data_contract_arc,
-    &signer,
-  ).await.expect("Cannot set price");
-  //
-  println!("{:?}", out);
+    &customer_signer,
+  )
+    .await
+    .expect("Cannot purchase");
+
   // println!("{:?}", out);
 
   println!("OK")
